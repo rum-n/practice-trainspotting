@@ -17,14 +17,14 @@ export default {
     isWideScreen() {
       return window.innerWidth >= 1024;
     },
-    trainsInTransit() {
-      return this.transitTrains.filter((train) => {
-        const journeyTime = train.startTime + 1; // 1 minute journey time
-        return (
-          this.currentTime >= train.startTime && this.currentTime <= journeyTime
-        );
-      });
-    },
+    // trainsInTransit() {
+    //   return this.transitTrains.filter((train) => {
+    //     const journeyTime = train.startTime + 1;
+    //     return (
+    //       this.currentTime >= train.startTime && this.currentTime <= journeyTime
+    //     );
+    //   });
+    // },
   },
   methods: {
     toggleClock() {
@@ -35,10 +35,6 @@ export default {
         this.stopClock();
       }
     },
-    // startClock() {
-    //   this.updateClock();
-    //   this.clockInterval = setInterval(this.updateClock, 500);
-    // },
     startClock() {
       const startTime = new Date();
       startTime.setHours(9);
@@ -52,6 +48,7 @@ export default {
         if (new Date(this.currentTime).getHours() === 11) {
           clearInterval(this.clockInterval);
         }
+        this.updateTrainIconPosition();
       }, 500);
     },
     stopClock() {
@@ -68,35 +65,16 @@ export default {
 
       return `${formattedHours}:${formattedMinutes} ${ampm}`;
     },
-    // updateClock() {
-    //   this.currentTime = new Date();
-    //   this.updateTransitTrains();
-    //   this.updateTrainPositions();
-    // },
-    updateTransitTrains() {
-      const currentTimeStr = this.currentTime;
-      this.transitTrains = this.journeys
-        .filter((journey) => {
-          return (
-            journey.timetable.includes(currentTimeStr) &&
-            journey.position < journey.routeLength
-          );
-        })
-        .map((journey) => journey.name);
-    },
-    // updateTrainPositions() {
-    //   this.journeys.forEach((journey) => {
-    //     const timeDiff = this.getTimeDiff(journey.startTime, this.currentTime);
-    //     const position = timeDiff / 2;
-    //     journey.position = position;
-    //   });
-    // },
-    // formatTime(date: Date) {
-    //   return date?.toLocaleTimeString("en-US", {
-    //     hour12: false,
-    //     hour: "2-digit",
-    //     minute: "2-digit",
-    //   });
+    // updateTransitTrains() {
+    //   const currentTimeStr = this.currentTime;
+    //   this.transitTrains = this.journeys
+    //     .filter((journey) => {
+    //       return (
+    //         journey.timetable.includes(currentTimeStr) &&
+    //         journey.position < journey.routeLength
+    //       );
+    //     })
+    //     .map((journey) => journey.name);
     // },
     formatTimetable(time: string) {
       const date = new Date(time);
@@ -106,23 +84,20 @@ export default {
       const formattedMinutes = minutes.toString().padStart(2, "0");
       return `${formattedHours}:${formattedMinutes}`;
     },
-    // getNextStation(journey: any) {
-    //   const timeDiff = this.getTimeDiff(journey.startTime, this.currentTime);
-    //   const nextStationIndex = Math.floor(timeDiff / 2);
-    //   return journey.route[nextStationIndex];
-    // },
-    // getTimeDiff(startTime: any, endTime: any) {
-    //   const start = startTime?.getTime();
-    //   const end = endTime?.getTime();
-    //   return (end - start) / 1000;
-    // },
     updateTrainIconPosition() {
-      // Find the current station based on the current time
       // const currentTime = new Date();
+      console.log(new Date(this.currentTime).getHours());
+      if (
+        new Date(this.currentTime).getHours() < 9 ||
+        new Date(this.currentTime).getHours() > 11
+      ) {
+        return;
+      }
       let currentStation = null;
       for (const journey of this.journeys) {
         for (let i = 0; i < journey.timetable.length; i++) {
           const stationTime = new Date(journey.timetable[i].time);
+          console.log(stationTime);
           if (stationTime.getTime() > this.currentTime.getTime()) {
             currentStation = i - 1;
             break;
@@ -152,12 +127,6 @@ export default {
       this.journeys = response.data;
       console.log(this.journeys);
     });
-
-    this.updateTrainIconPosition();
-    setInterval(() => {
-      this.updateTrainIconPosition();
-    }, 500);
-
     // this.updateViewportWidth();
     // window.addEventListener("resize", this.updateViewportWidth);
   },
