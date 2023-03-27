@@ -28,20 +28,8 @@ export default {
       clockInterval: null as any,
       leftPosition: 0,
       routeLength: 0,
+      screenWidth: window.innerWidth,
     };
-  },
-  computed: {
-    isWideScreen() {
-      return window.innerWidth >= 1024;
-    },
-    // trainsInTransit() {
-    //   return this.transitTrains.filter((train) => {
-    //     const journeyTime = train.startTime + 1;
-    //     return (
-    //       this.currentTime >= train.startTime && this.currentTime <= journeyTime
-    //     );
-    //   });
-    // },
   },
   methods: {
     toggleClock() {
@@ -182,17 +170,25 @@ export default {
       }
       return nextStation;
     },
+    handleResize() {
+      this.screenWidth = window.innerWidth;
+    },
   },
   mounted() {
     axios.get("http://localhost:3001/journeys").then((response) => {
       this.journeys = response.data;
       console.log(this.journeys);
     });
+    window.addEventListener("resize", this.handleResize);
+    this.handleResize();
     // this.updateViewportWidth();
     // window.addEventListener("resize", this.updateViewportWidth);
   },
   beforeDestroy() {
     clearInterval(this.clockInterval);
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.handleResize);
   },
 };
 </script>
@@ -202,38 +198,53 @@ export default {
     <div class="header">
       <div class="left-side">
         <h1>Jiminny Trainspotting</h1>
-        <button @click="toggleClock">
+        <button v-if="screenWidth > 1024" @click="toggleClock">
           {{ clockRunning ? "Stop" : "Start" }}
         </button>
       </div>
       <div class="right-side">
-        <div class="trains">
+        <div v-if="screenWidth > 1024" class="trains">
           Trains in Transit: {{ transitTrains.join(", ") || "None" }}
         </div>
-        <div class="time">Current Time: {{ getCurrentTime() }}</div>
+        <div v-if="screenWidth > 1024" class="time">
+          Current Time: {{ getCurrentTime() }}
+        </div>
       </div>
     </div>
     <table class="journeys">
       <thead>
         <tr>
-          <th>Name</th>
-          <!-- <th v-if="isWideScreen">Route</th>
-          <th v-if="isWideScreen">Timetable</th>
-          <th v-if="isWideScreen">Next Station</th> -->
-          <th>Route</th>
+          <th v-if="screenWidth > 1024 && screenWidth < 1299">Name/Route</th>
+          <th v-if="screenWidth >= 1300 || screenWidth < 1024">Name</th>
+          <th v-if="screenWidth >= 1300 || screenWidth < 1024">Route</th>
           <th>Timetable</th>
-          <th>Next Station</th>
+          <th v-if="screenWidth >= 1024">Next Station</th>
           <th>Train Name</th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(journey, index) in journeys" :key="index">
-          <td>{{ journey.name }}</td>
-          <td>{{ journey.route }}</td>
-          <td class="timetable">
+          <td v-if="screenWidth > 1024 && screenWidth < 1299">
+            {{ journey.name }} / {{ journey.route }}
+          </td>
+          <td v-if="screenWidth >= 1300 || screenWidth < 1024">
+            {{ journey.name }}
+          </td>
+          <td v-if="screenWidth >= 1300 || screenWidth < 1024">
+            {{ journey.route }}
+          </td>
+          <td v-if="screenWidth >= 1024" class="timetable">
             <ul>
-              <li v-for="(item, index) in journey.timetable" :key="index">
-                <span style="color: transparent">{{ index }}</span>
+              <li
+                v-for="(item, index) in journey.timetable"
+                :key="index"
+                :style="{
+                  marginRight: getStationDistance(
+                    item,
+                    journey.timetable[index - 1]
+                  ),
+                }"
+              >
                 <img
                   class="station-icon"
                   src="./../assets/station.svg"
@@ -243,7 +254,10 @@ export default {
             </ul>
             <div
               class="train-line"
-              :style="{ width: getRouteLength(journey.timetable) }"
+              :style="{
+                width: getRouteLength(journey.timetable),
+                maxWidth: '900px',
+              }"
             >
               <div
                 class="train-icon"
@@ -314,11 +328,16 @@ export default {
               </li>
             </ul>
           </td>
-          <!-- <td>{{ getNextStation(journey) }}</td> -->
-          <!-- <td v-if="isWideScreen">{{ journey.route }}</td>
-          <td v-if="isWideScreen">{{ formatTimetable(journey.timetable) }}</td>
-          <td v-if="isWideScreen">{{ getNextStation(journey) }}</td> -->
-          <td>{{ getNextStation(journey) }}</td>
+          <td v-if="screenWidth < 1024">
+            <ul style="list-style: none">
+              <li v-for="(item, index) in journey.timetable" :key="index">
+                {{ formatTimetable(item.time) }}: {{ item.station }}
+                <div class="dash"></div>
+              </li>
+            </ul>
+          </td>
+
+          <td v-if="screenWidth >= 1024">{{ getNextStation(journey) }}</td>
           <td>
             <div>{{ journey.train.name }}</div>
           </td>
@@ -414,8 +433,6 @@ export default {
 .station-icon {
   width: 20px;
   height: 16px;
-  position: absolute;
-  bottom: 0;
 }
 
 .timetable ul li {
