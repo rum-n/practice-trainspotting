@@ -22,13 +22,14 @@ export default {
   data() {
     return {
       clockRunning: false,
-      currentTime: new Date("2023-03-27T09:00:00Z"),
+      currentTime: new Date("2020-06-04T09:00:00Z").getTime(),
       transitTrains: [] as any[],
       journeys: [] as any[],
       clockInterval: null as any,
       leftPosition: 0,
-      routeLength: 0,
       screenWidth: window.innerWidth,
+      trainPosition: 0,
+      nextStation: "" as string,
     };
   },
   methods: {
@@ -41,18 +42,50 @@ export default {
       }
     },
     startClock() {
-      let time = this.currentTime.getTime();
+      this.transitTrains = this.journeys.map(
+        (item: TrainRoute) => item.train.name
+      );
       this.clockInterval = setInterval(() => {
-        time += 0.5 * 60 * 1000;
-        this.currentTime = new Date(time);
+        this.trainPosition += 5;
+        this.currentTime += 60 * 1000;
+        for (let i = 0; i < this.journeys.length; i++) {
+          // if (this.routeLengths[i] <= this.trainPosition) {
+          //   this.transitTrains = this.transitTrains.filter(
+          //     (train: Train) => train !== this.journeys[i].train.name
+          //   );
+          // }
+          if (
+            this.currentTime >
+            new Date(
+              this.journeys[i].timetable[
+                this.journeys[i].timetable.length - 1
+              ].time
+            ).getTime()
+          ) {
+            this.transitTrains = this.transitTrains.filter(
+              (train: Train) => train !== this.journeys[i].train.name
+            );
+          }
+        }
         if (new Date(this.currentTime).getUTCHours() === 11) {
           clearInterval(this.clockInterval);
         }
-        this.updateTrainIconPosition();
+        if (this.trainPosition > 120 * 5) this.stopClock();
       }, 500);
     },
     stopClock() {
       clearInterval(this.clockInterval);
+    },
+    getNextStation(journey: TrainRoute) {
+      if (this.currentTime <= new Date(journey.timetable[0].time).getTime()) {
+        return journey.timetable[0].station;
+      } else {
+        const nextStation = journey.timetable.find(
+          (station: TrainStation) =>
+            new Date(station.time).getTime() > this.currentTime
+        );
+        return nextStation?.station;
+      }
     },
     getCurrentTime() {
       const currentTime = new Date(this.currentTime);
@@ -62,13 +95,11 @@ export default {
 
       return `${hours}:${formattedMinutes} AM`;
     },
-    getRouteLength(timetable: TrainStation[]): string {
+    getRouteLength(timetable: TrainStation[]): number {
       const startTime = new Date(timetable[0].time);
       const endTime = new Date(timetable[timetable.length - 1].time);
       const routeLength = (endTime.getTime() - startTime.getTime()) / 60000;
-      const totalDistance = routeLength * 5 + "px";
-      console.log(totalDistance);
-      return totalDistance;
+      return routeLength * 5;
     },
     getStationDistance(station: TrainStation, prevStation?: TrainStation) {
       let timeDiff = 0;
@@ -79,7 +110,6 @@ export default {
         timeDiff = diffMs / 60000;
       }
       const distance = timeDiff * 5 + "px";
-      console.log(distance);
       return distance;
     },
     formatTimetable(time: string) {
@@ -90,86 +120,6 @@ export default {
       const formattedMinutes = minutes.toString().padStart(2, "0");
       return `${formattedHours}:${formattedMinutes}`;
     },
-    updateTrainIconPosition() {
-      if (
-        new Date(this.currentTime).getUTCHours() < 9 ||
-        new Date(this.currentTime).getUTCHours() > 11
-      ) {
-        return;
-      }
-      let currentStation = null as any;
-      for (const journey of this.journeys) {
-        for (let i = 0; i < journey.timetable.length; i++) {
-          const stationTime = new Date(journey.timetable[i].time);
-          if (stationTime.getTime() === this.currentTime.getTime()) {
-            currentStation = journey.timetable[i].station;
-            console.log(currentStation);
-          } else {
-            currentStation = journey.timetable[0].station;
-          }
-        }
-
-        if (currentStation !== null) {
-          const currentStationIndex = journey.timetable.indexOf(
-            journey.timetable.find(
-              (station: TrainStation) => station.station === currentStation
-            )
-          );
-          const currentStationTime = new Date(
-            journey.timetable[currentStationIndex].time
-          );
-          const nextStationTime = new Date(
-            journey.timetable[currentStationIndex + 1].time
-          );
-
-          const endTime = new Date(
-            journey.timetable[journey.timetable.length - 1].time
-          );
-
-          const startTime = new Date(journey.timetable[0].time);
-          const totalTime = endTime.getTime() - startTime.getTime();
-
-          const elapsedTime = this.currentTime.getTime() - startTime.getTime();
-          const progress = elapsedTime / totalTime;
-
-          this.leftPosition = (progress * 100) / totalTime;
-          console.log(this.leftPosition);
-          console.log(this.currentTime);
-
-          // update transitTrains
-
-          if (
-            this.currentTime.getTime() >= startTime.getTime() &&
-            this.currentTime.getTime() <= endTime.getTime()
-          ) {
-            if (!this.transitTrains.includes(journey.train.name)) {
-              this.transitTrains.push(journey.train.name);
-            }
-          } else {
-            const index = this.transitTrains.indexOf(journey.train.name);
-            if (index !== -1) {
-              this.transitTrains.splice(index, 1);
-            }
-          }
-        } else {
-          this.leftPosition = 0;
-        }
-      }
-    },
-
-    getNextStation(journey: TrainRoute) {
-      let nextStation;
-      for (let i = 0; i < journey.timetable.length; i++) {
-        const stationTime = new Date(journey.timetable[i].time);
-        nextStation = journey.timetable[0].station;
-        if (stationTime.getTime() > this.currentTime.getTime()) {
-          // console.log(this.currentTime.getTime());
-          // console.log(stationTime.getTime());
-          nextStation = journey.timetable[i].station;
-        }
-      }
-      return nextStation;
-    },
     handleResize() {
       this.screenWidth = window.innerWidth;
     },
@@ -179,10 +129,9 @@ export default {
       this.journeys = response.data;
       console.log(this.journeys);
     });
+
     window.addEventListener("resize", this.handleResize);
     this.handleResize();
-    // this.updateViewportWidth();
-    // window.addEventListener("resize", this.updateViewportWidth);
   },
   beforeDestroy() {
     clearInterval(this.clockInterval);
@@ -197,7 +146,7 @@ export default {
   <div class="app">
     <div class="header">
       <div class="left-side">
-        <h1>Jiminny Trainspotting</h1>
+        <h2>Jiminny Trainspotting</h2>
         <button v-if="screenWidth > 1024" @click="toggleClock">
           {{ clockRunning ? "Stop" : "Start" }}
         </button>
@@ -233,13 +182,13 @@ export default {
           <td v-if="screenWidth >= 1300 || screenWidth < 1024">
             {{ journey.route }}
           </td>
-          <td v-if="screenWidth >= 1024" class="timetable">
-            <ul>
-              <li
+          <td v-if="screenWidth >= 1024">
+            <div class="timetable">
+              <div
                 v-for="(item, index) in journey.timetable"
                 :key="index"
                 :style="{
-                  marginRight: getStationDistance(
+                  marginLeft: getStationDistance(
                     item,
                     journey.timetable[index - 1]
                   ),
@@ -250,89 +199,30 @@ export default {
                   src="./../assets/station.svg"
                   alt="Station Icon"
                 />
-              </li>
-            </ul>
+                <div class="dash"></div>
+                <div class="times">{{ formatTimetable(item.time) }}</div>
+              </div>
+            </div>
             <div
               class="train-line"
               :style="{
-                width: getRouteLength(journey.timetable),
-                maxWidth: '900px',
+                width: getRouteLength(journey.timetable) + 'px',
               }"
             >
-              <div
-                class="train-icon"
+              <img
                 :style="{
-                  left: leftPosition + '%',
+                  marginLeft: trainPosition + 'px',
                 }"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  version="1.1"
-                  xmlns:xlink="http://www.w3.org/1999/xlink"
-                  viewBox="0 0 500 500"
-                >
-                  <g stroke="none" fill="black">
-                    <circle cx="226" cy="19" r="19" />
-                    <circle cx="275" cy="19" r="19" />
-                    <rect
-                      x="100"
-                      y="44"
-                      rx="65"
-                      ry="65"
-                      width="300"
-                      height="370"
-                    />
-                    <g fill="white">
-                      <rect
-                        x="207"
-                        y="58"
-                        rx="11"
-                        ry="11"
-                        width="87"
-                        height="41"
-                      />
-                      <rect
-                        x="136"
-                        y="112"
-                        rx="34"
-                        ry="34"
-                        width="229"
-                        height="111"
-                      />
-                      <circle cx="166" cy="349" r="30" />
-                      <circle cx="334" cy="349" r="30" />
-                    </g>
-                  </g>
-                  <polyline
-                    points="96,530 162,432 338,432 404,530"
-                    stroke="black"
-                    stroke-width="2"
-                    fill="none"
-                  />
-                </svg>
-              </div>
+                class="train"
+                src="./../assets/train.svg"
+                alt="Train Icon"
+              />
             </div>
-            <ul>
-              <li
-                v-for="(item, index) in journey.timetable"
-                :key="index"
-                :style="{
-                  marginRight: getStationDistance(
-                    item,
-                    journey.timetable[index - 1]
-                  ),
-                }"
-              >
-                {{ formatTimetable(item.time) }}
-                <div class="dash"></div>
-              </li>
-            </ul>
           </td>
           <td v-if="screenWidth < 1024">
             <ul style="list-style: none">
               <li v-for="(item, index) in journey.timetable" :key="index">
                 {{ formatTimetable(item.time) }}: {{ item.station }}
-                <div class="dash"></div>
               </li>
             </ul>
           </td>
@@ -348,31 +238,6 @@ export default {
 </template>
 
 <style scoped>
-.train-line {
-  position: relative;
-  height: 25px;
-  background: url("./../assets/road-texture.jpg");
-  background-size: 50% 50%;
-  margin-bottom: 0.5rem;
-}
-
-.train-icon {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 16px;
-  height: 16px;
-  margin: auto;
-  padding: 1px;
-  background-color: #fff;
-  border-radius: 50%;
-}
-
-.train-station {
-  position: absolute;
-  bottom: -10px;
-  transform: translateX(-50%);
-}
 .app {
   max-width: 90%;
   margin: 30px auto;
@@ -389,7 +254,7 @@ export default {
   align-items: center;
 }
 
-.left-side h1 {
+.left-side h2 {
   margin-right: 20px;
 }
 .right-side {
@@ -423,30 +288,42 @@ export default {
   background-color: #eee;
 }
 
-.timetable ul {
-  text-orientation: sideways;
-  writing-mode: vertical-rl;
-  transform: rotate(-180deg);
-  list-style: none;
-  padding: 0.5rem;
-}
 .station-icon {
   width: 20px;
   height: 16px;
 }
 
-.timetable ul li {
+.timetable {
   display: flex;
 }
 
 .dash {
-  width: 30px;
-  position: absolute;
-  bottom: 0;
-  margin: 0;
-  padding: 0;
-  border-bottom: 1px solid black;
-  rotate: 90deg;
-  margin-bottom: -20px;
+  height: 25px;
+  margin-left: 0.5rem;
+  position: relative;
+  border-left: 1px solid #000;
+}
+
+.train {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  padding: 1px;
+  border-radius: 50%;
+  background-color: #fff;
+}
+
+.times {
+  margin-top: 0.2rem;
+  text-orientation: sideways;
+  writing-mode: vertical-rl;
+  transform: rotate(-180deg);
+}
+
+.train-line {
+  height: 25px;
+  background: url("./../assets/road-texture.jpg");
+  background-size: contain;
+  margin: -4.5rem 0 3.5rem;
 }
 </style>
