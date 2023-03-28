@@ -26,10 +26,8 @@ export default {
       transitTrains: [] as any[],
       journeys: [] as any[],
       clockInterval: null as any,
-      leftPosition: 0,
       screenWidth: window.innerWidth,
       trainPosition: 0,
-      nextStation: "" as string,
     };
   },
   methods: {
@@ -49,11 +47,6 @@ export default {
         this.trainPosition += 5;
         this.currentTime += 60 * 1000;
         for (let i = 0; i < this.journeys.length; i++) {
-          // if (this.routeLengths[i] <= this.trainPosition) {
-          //   this.transitTrains = this.transitTrains.filter(
-          //     (train: Train) => train !== this.journeys[i].train.name
-          //   );
-          // }
           if (
             this.currentTime >
             new Date(
@@ -95,11 +88,11 @@ export default {
 
       return `${hours}:${formattedMinutes} AM`;
     },
-    getRouteLength(timetable: TrainStation[]): number {
+    getRouteLength(timetable: TrainStation[]): string {
       const startTime = new Date(timetable[0].time);
       const endTime = new Date(timetable[timetable.length - 1].time);
       const routeLength = (endTime.getTime() - startTime.getTime()) / 60000;
-      return routeLength * 5;
+      return routeLength * 5 + "px";
     },
     getStationDistance(station: TrainStation, prevStation?: TrainStation) {
       let timeDiff = 0;
@@ -109,8 +102,7 @@ export default {
           new Date(prevStation.time).getTime();
         timeDiff = diffMs / 60000;
       }
-      const distance = timeDiff * 5 + "px";
-      return distance;
+      return timeDiff * 5 - 25 + "px";
     },
     formatTimetable(time: string) {
       const date = new Date(time);
@@ -127,7 +119,6 @@ export default {
   mounted() {
     axios.get("http://localhost:3001/journeys").then((response) => {
       this.journeys = response.data;
-      console.log(this.journeys);
     });
 
     window.addEventListener("resize", this.handleResize);
@@ -135,8 +126,6 @@ export default {
   },
   beforeDestroy() {
     clearInterval(this.clockInterval);
-  },
-  beforeUnmount() {
     window.removeEventListener("resize", this.handleResize);
   },
 };
@@ -206,10 +195,11 @@ export default {
             <div
               class="train-line"
               :style="{
-                width: getRouteLength(journey.timetable) + 'px',
+                width: getRouteLength(journey.timetable),
               }"
             >
               <img
+                v-if="transitTrains.includes(journey.train.name)"
                 :style="{
                   marginLeft: trainPosition + 'px',
                 }"
@@ -227,7 +217,9 @@ export default {
             </ul>
           </td>
 
-          <td v-if="screenWidth >= 1024">{{ getNextStation(journey) }}</td>
+          <td v-if="screenWidth >= 1024">
+            {{ getNextStation(journey) || "End station reached" }}
+          </td>
           <td>
             <div>{{ journey.train.name }}</div>
           </td>
@@ -262,12 +254,11 @@ export default {
   align-items: center;
 }
 
-.right-side .trains {
+.trains {
   margin-right: 20px;
 }
 
 .journeys {
-  width: 100%;
   border-collapse: collapse;
   border: 1px solid #ddd;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
@@ -295,6 +286,7 @@ export default {
 
 .timetable {
   display: flex;
+  margin-left: 20px;
 }
 
 .dash {
